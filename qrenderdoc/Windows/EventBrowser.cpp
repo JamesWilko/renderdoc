@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  ******************************************************************************/
 
-#include "EventBrowser.h"
 #include <QAbstractSpinBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -38,6 +37,8 @@
 #include "Code/Resources.h"
 #include "Widgets/Extended/RDHeaderView.h"
 #include "Widgets/Extended/RDListWidget.h"
+#include "BufferViewer.h"
+#include "EventBrowser.h"
 #include "ui_EventBrowser.h"
 
 struct EventItemTag
@@ -789,6 +790,75 @@ void EventBrowser::on_colSelect_clicked()
   }
 }
 
+void EventBrowser::on_exportMassDraws_clicked()
+{
+  if(!m_Ctx.IsCaptureLoaded())
+    return;
+
+  QString directory = RDDialog::getExistingDirectory(this, tr("Choose export directory"));
+  QDir dirinfo = QDir(directory);
+  if(dirinfo.exists())
+  {
+
+	LambdaThread *thread = new LambdaThread([this, directory]
+	{
+      const DrawcallDescription *draw = m_Ctx.CurDrawcall();
+      BufferViewer *viewer = (BufferViewer *)m_Ctx.GetMeshPreview();
+      int current = 0;
+      const int max = 2048;
+
+      while(draw)
+      {
+        // export the event
+        if(((unsigned int) draw->flags & (0x0002 | 0x010000)) == (0x0002 | 0x010000))
+		{
+          if(((unsigned int)draw->flags & 0x020000) == 0)
+		  {
+		     QString eidString = QString::number(draw->eventId);
+             QString exportname = QFormatStr("%1\\%2.csv").arg(directory).arg(eidString);
+             viewer->ExportAsCsv(&exportname);
+		  }
+		}
+
+        // goto the next event
+        if(draw && draw->next)
+        {
+          SelectEvent(draw->next->eventId);
+          draw = draw->next;
+          QThread::msleep(1000);
+        }
+        else
+        {
+          draw = nullptr;
+        }
+
+        // stop if we reach a drawcall that isn't a draw
+        if(!((unsigned int)draw->flags & 0x0002))
+          break;
+
+        // don't process too many in a row
+        current++;
+        if(current >= max)
+          break;
+      }
+
+	  // select where we ended up
+      SelectEvent(draw->eventId);
+
+    });
+    thread->selfDelete(true);
+    thread->start();
+
+	ShowProgressDialog(this, tr("Exporting data"), [thread]() { return !thread->isRunning(); });
+
+  }
+  else
+  {
+    RDDialog::critical(this, tr("Invalid directory"), tr("Cannot find target directory to save to"));
+    return;
+  }
+}
+
 QString EventBrowser::GetExportDrawcallString(int indent, bool firstchild,
                                               const DrawcallDescription &drawcall)
 {
@@ -957,29 +1027,29 @@ void EventBrowser::events_keyPress(QKeyEvent *event)
       Find(true);
   }
 
-  if(event->modifiers() == Qt::ControlModifier)
-  {
-    if(event->key() == Qt::Key_F)
+    if(event->modifiers() == Qt::ControlModifier)
     {
-      on_find_clicked();
-      event->accept();
+      if(event->key() == Qt::Key_F)
+      {
+        on_find_clicked();
+        event->accept();
+      }
+      else if(event->key() == Qt::Key_G)
+      {
+        on_gotoEID_clicked();
+        event->accept();
+      }
+      else if(event->key() == Qt::Key_B)
+      {
+        on_bookmark_clicked();
+        event->accept();
+      }
+      else if(event->key() == Qt::Key_T)
+      {
+        on_timeDraws_clicked();
+        event->accept();
+      }
     }
-    else if(event->key() == Qt::Key_G)
-    {
-      on_gotoEID_clicked();
-      event->accept();
-    }
-    else if(event->key() == Qt::Key_B)
-    {
-      on_bookmark_clicked();
-      event->accept();
-    }
-    else if(event->key() == Qt::Key_T)
-    {
-      on_timeDraws_clicked();
-      event->accept();
-    }
-  }
 }
 
 void EventBrowser::events_contextMenu(const QPoint &pos)

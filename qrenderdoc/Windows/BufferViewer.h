@@ -52,8 +52,10 @@ struct BufferExport
   };
 
   ExportFormat format;
+  QString *filename;
 
   BufferExport(ExportFormat f) : format(f) {}
+  BufferExport(ExportFormat f, QString *n) : format(f), filename(n) {}
 };
 
 class BufferViewer : public QFrame, public IBufferViewer, public ICaptureViewer
@@ -89,6 +91,8 @@ public:
 
   QVariant persistData();
   void setPersistData(const QVariant &persistData);
+
+  void ExportAsCsv(QString *filename);
 
 private slots:
   // automatic slots

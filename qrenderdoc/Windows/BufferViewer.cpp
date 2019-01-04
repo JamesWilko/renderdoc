@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  ******************************************************************************/
 
-#include "BufferViewer.h"
 #include <float.h>
 #include <QDoubleSpinBox>
 #include <QFontDatabase>
@@ -35,6 +34,7 @@
 #include <QtMath>
 #include "Code/QRDUtils.h"
 #include "Code/Resources.h"
+#include "BufferViewer.h"
 #include "ui_BufferViewer.h"
 
 class CameraWrapper
@@ -114,6 +114,7 @@ protected:
   int move(Direction dir) { return m_CurrentMove[(int)dir]; }
   float currentSpeed() { return m_CurrentSpeed * SpeedMultiplier; }
   QPoint dragStartPos() { return m_DragStartPos; }
+
 private:
   float m_CurrentSpeed = 1.0f;
   int m_CurrentMove[(int)Direction::Num] = {0, 0, 0};
@@ -3210,6 +3211,11 @@ void BufferViewer::on_byteRangeLength_valueChanged(int value)
   processFormat(m_Format);
 }
 
+void BufferViewer::ExportAsCsv(QString *filename)
+{
+  exportData(BufferExport(BufferExport::CSV, filename));
+}
+
 void BufferViewer::exportData(const BufferExport &params)
 {
   if(!m_Ctx.IsCaptureLoaded())
@@ -3227,8 +3233,16 @@ void BufferViewer::exportData(const BufferExport &params)
   else if(params.format == BufferExport::RawBytes)
     filter = tr("Binary Files (*.bin)");
 
-  QString filename = RDDialog::getSaveFileName(this, tr("Export buffer to bytes"), QString(),
-                                               tr("%1;;All files (*)").arg(filter));
+  QString filename;
+  if(params.filename == nullptr)
+  {
+    filename = RDDialog::getSaveFileName(this, tr("Export buffer to bytes"), QString(),
+                                         tr("%1;;All files (*)").arg(filter));
+  }
+  else
+  {
+    filename = *params.filename;
+  }
 
   if(filename.isEmpty())
     return;
@@ -3254,7 +3268,6 @@ void BufferViewer::exportData(const BufferExport &params)
 
   BufferItemModel *model = (BufferItemModel *)m_CurView->model();
 
-  LambdaThread *exportThread = new LambdaThread([this, params, model, f]() {
     if(params.format == BufferExport::RawBytes)
     {
       if(!m_MeshView)
@@ -3347,13 +3360,6 @@ void BufferViewer::exportData(const BufferExport &params)
     f->close();
 
     delete f;
-  });
-  exportThread->start();
-
-  ShowProgressDialog(this, tr("Exporting data"),
-                     [exportThread]() { return !exportThread->isRunning(); });
-
-  exportThread->deleteLater();
 }
 
 void BufferViewer::debugVertex()

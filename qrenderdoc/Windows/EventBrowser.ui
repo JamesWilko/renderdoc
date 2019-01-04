@@ -202,6 +202,21 @@
        </property>
       </widget>
      </item>
+      <item>
+        <widget class="QToolButton" name="exportMassDraws">
+          <property name="toolTip">
+            <string>Export PIX mesh data for multiple draw calls</string>
+          </property>
+          <property name="icon">
+            <iconset resource="../Resources/resources.qrc">
+              <normaloff>:/save.png</normaloff>:/save.png
+            </iconset>
+          </property>
+          <property name="autoRaise">
+            <bool>true</bool>
+          </property>
+        </widget>
+      </item>
      <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
